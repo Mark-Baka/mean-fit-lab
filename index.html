@@ -3,364 +3,180 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>柔光·均值拟合 | 本地保存</title>
-    <!-- Chart.js 轻量图表库 -->
+    <title>自然·双模拟合 | 平行均值 / 直接斜率</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <!-- 柔和字体 Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&family=Quicksand:wght@500;600&display=swap" rel="stylesheet">
     <style>
-        /* ----- 全局柔和风格 ----- */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-        }
+        * { box-sizing: border-box; margin: 0; }
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background: #f4f7fb;  /* 柔光背景 */
-            padding: 28px 20px;
-            color: #1e293b;
+            background: linear-gradient(145deg, #e3f0e8 0%, #f0f5f0 40%, #fafcf9 80%);
+            min-height: 100vh; padding: 30px 18px; color: #2c3e2b;
+            position: relative; overflow-x: hidden;
         }
-        .app-container {
-            max-width: 1500px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
+        body::before {
+            content: ""; position: fixed; top: -80px; right: -120px;
+            width: 380px; height: 380px;
+            background: radial-gradient(circle at 30% 30%, rgba(120,180,120,0.12) 0%, transparent 70%);
+            border-radius: 50%; z-index: 0; pointer-events: none;
         }
-        /* 卡片 —— 毛玻璃质感 + 柔和阴影 */
+        body::after {
+            content: ""; position: fixed; bottom: -100px; left: -100px;
+            width: 420px; height: 420px;
+            background: radial-gradient(circle at 70% 70%, rgba(140,190,130,0.1) 0%, transparent 70%);
+            border-radius: 50%; z-index: 0; pointer-events: none;
+        }
+        .app-container { max-width: 1450px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; position: relative; z-index: 1; }
         .card {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 32px;
-            box-shadow: 0 18px 40px -12px rgba(0, 20, 40, 0.12), 0 6px 18px -6px rgba(0, 0, 0, 0.05);
-            padding: 28px 32px;
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            transition: box-shadow 0.2s;
+            background: rgba(255,255,250,0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border-radius: 44px; box-shadow: 0 25px 50px -15px rgba(40,60,35,0.15), 0 4px 12px rgba(0,0,0,0.04);
+            padding: 32px 36px; border: 1px solid rgba(160,190,150,0.3);
         }
-        h1 {
-            font-weight: 550;
-            font-size: 2rem;
-            letter-spacing: -0.02em;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            color: #0b1e32;
+        h1 { font-family: 'Quicksand',sans-serif; font-weight: 600; font-size: 2.2rem; color: #2d4a2c; display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
+        .subtitle { color: #4a5b44; font-size: 0.98rem; margin-bottom: 26px; border-left: 4px solid #8cae7e; padding-left: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+        .mode-tabs { display: flex; gap: 10px; margin-bottom: 22px; flex-wrap: wrap; }
+        .mode-btn {
+            padding: 12px 28px; border-radius: 60px; font-weight: 550; font-size: 0.95rem;
+            background: rgba(255,255,250,0.6); border: 1.5px solid rgba(120,150,110,0.3);
+            color: #3b5637; cursor: pointer; transition: all 0.2s; backdrop-filter: blur(4px);
+            display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         }
-        .subtitle {
-            color: #526477;
-            margin-bottom: 28px;
-            border-left: 4px solid #7c9bda;
-            padding-left: 20px;
-            font-weight: 400;
-            font-size: 1rem;
+        .mode-btn.active { background: #e3f0e3; border-color: #6c9e5c; color: #214d1e; box-shadow: 0 6px 16px rgba(80,120,60,0.12); font-weight: 600; }
+        .mode-btn:hover { background: rgba(235,248,235,0.8); border-color: #8cae7e; }
+        .input-panel { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px 28px; margin-bottom: 14px; }
+        .triple-input { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+        .input-group { display: flex; flex-direction: column; gap: 6px; }
+        .input-group label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #52634d; }
+        .input-group input, .paste-area {
+            padding: 12px 16px; border: 1.5px solid rgba(140,165,130,0.4); border-radius: 24px;
+            font-size: 1rem; background: rgba(255,255,250,0.75); backdrop-filter: blur(4px);
+            font-family: 'Inter', monospace; color: #1e3a1e; transition: 0.2s;
+            box-shadow: inset 0 1px 4px rgba(0,0,0,0.02);
         }
-        /* 输入区域 */
-        .input-panel {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            gap: 20px 30px;
-            margin-bottom: 10px;
-        }
-        .triple-input {
-            display: flex;
-            gap: 14px;
-            flex-wrap: wrap;
-        }
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .input-group label {
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            color: #5e7188;
-        }
-        .input-group input {
-            padding: 12px 16px;
-            border: 1.5px solid #d9e2ef;
-            border-radius: 20px;
-            font-size: 1rem;
-            width: 140px;
-            transition: all 0.2s;
-            background: rgba(255,255,255,0.7);
-            backdrop-filter: blur(4px);
-            font-family: 'Inter', monospace;
-            color: #1a2b3e;
-        }
-        .input-group input:focus {
-            border-color: #8aacf0;
-            outline: none;
-            box-shadow: 0 0 0 4px rgba(138, 172, 240, 0.15);
+        .input-group input:focus, .paste-area:focus {
+            outline: none; border-color: #85aa70; box-shadow: 0 0 0 4px rgba(140,190,120,0.15);
             background: rgba(255,255,255,0.9);
         }
-        .paste-hint {
-            font-size: 0.8rem;
-            color: #5271a0;
-            margin: 6px 0 0 4px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        /* 按钮 */
+        .paste-area { width: 100%; min-height: 110px; resize: vertical; }
         .btn {
-            background: rgba(255,255,255,0.65);
-            backdrop-filter: blur(4px);
-            border: 1.5px solid #d0dded;
-            padding: 12px 24px;
-            border-radius: 40px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            color: #1f3a5f;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.02);
+            background: rgba(255,255,250,0.7); backdrop-filter: blur(4px);
+            border: 1.5px solid rgba(140,165,130,0.5); padding: 12px 24px;
+            border-radius: 50px; font-weight: 500; font-size: 0.95rem; color: #2f4129;
+            cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
         }
-        .btn-primary {
-            background: #1f3a5f;
-            border-color: #1f3a5f;
-            color: white;
-            box-shadow: 0 8px 16px -6px rgba(31, 58, 95, 0.2);
-        }
-        .btn-primary:hover {
-            background: #11273f;
-            transform: translateY(-1px);
-        }
-        .btn-outline-blue {
-            border-color: #b9cef0;
-            background: rgba(235, 245, 255, 0.7);
-            color: #1f4973;
-        }
-        .btn-outline-blue:hover {
-            background: rgba(205, 225, 255, 0.8);
-            border-color: #7e9ed9;
-        }
-        .btn-sm { padding: 8px 18px; font-size: 0.85rem; }
-        
-        .action-bar {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            align-items: center;
-            margin: 20px 0 12px;
-        }
-        .stats-badge {
-            background: rgba(220, 235, 250, 0.7);
-            backdrop-filter: blur(4px);
-            padding: 8px 20px;
-            border-radius: 40px;
-            font-size: 0.9rem;
-            color: #1f4172;
-            font-weight: 500;
-        }
-        /* 表格区域 */
-        .table-wrapper {
-            overflow-x: auto;
-            margin: 16px 0 8px;
-            border-radius: 24px;
-            border: 1px solid rgba(210, 225, 245, 0.6);
-            background: rgba(255,255,255,0.5);
-            backdrop-filter: blur(4px);
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 800px;
-            font-size: 0.9rem;
-        }
-        th {
-            text-align: left;
-            padding: 18px 14px;
-            background: rgba(235, 245, 255, 0.5);
-            font-weight: 600;
-            color: #2c405c;
-            border-bottom: 2px solid #cbd6e8;
-        }
-        td {
-            padding: 16px 14px;
-            border-bottom: 1px solid #e2eaf5;
-        }
-        .mono-num {
-            font-family: 'JetBrains Mono', 'SF Mono', monospace;
-            font-weight: 500;
-        }
-        .mean-highlight {
-            background: rgba(205, 220, 240, 0.5);
-            border-radius: 30px;
-            padding: 5px 14px;
-            display: inline-block;
-            font-weight: 600;
-        }
-        input[type="checkbox"] {
-            width: 20px; height: 20px;
-            accent-color: #5f8bc9;
-            cursor: pointer;
-        }
-        .delete-btn {
-            background: none; border: none;
-            color: #8b9bb5; font-size: 1.3rem;
-            cursor: pointer; padding: 6px 8px;
-            border-radius: 30px;
-            transition: 0.15s;
-        }
-        .delete-btn:hover {
-            background: rgba(220, 80, 80, 0.1);
-            color: #c04242;
-        }
-        /* 拟合卡片 */
-        .fit-result {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: baseline;
-            gap: 24px 40px;
-            margin-top: 10px;
-        }
-        .equation {
-            font-size: 1.9rem;
-            font-weight: 550;
-            background: linear-gradient(145deg, #1f3a5f, #2e4a76);
-            background-clip: text;
-            -webkit-background-clip: text;
-            color: transparent;
-        }
-        .rsquared {
-            background: rgba(205, 225, 250, 0.7);
-            backdrop-filter: blur(4px);
-            padding: 8px 22px;
-            border-radius: 40px;
-            font-weight: 600;
-            color: #165a7a;
-            font-size: 1.2rem;
-        }
-        .chart-container {
-            margin-top: 28px;
-            height: 280px;
-            position: relative;
-        }
-        .note {
-            color: #5c6f87;
-            font-size: 0.85rem;
-            margin-top: 12px;
-        }
-        hr {
-            border: none;
-            border-top: 1px solid rgba(169, 192, 218, 0.4);
-            margin: 18px 0;
-        }
-        /* 任务区 */
-        .task-section { margin-top: 20px; }
-        .task-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 18px;
-        }
-        .task-header h3 {
-            font-weight: 550;
-            color: #1e3b5c;
-        }
-        .task-list {
-            background: rgba(255,255,255,0.4);
-            backdrop-filter: blur(4px);
-            border-radius: 24px;
-            border: 1px solid rgba(200, 218, 240, 0.6);
-            overflow-x: auto;
-        }
+        .btn-primary { background: #3b6036; border-color: #2c4825; color: white; box-shadow: 0 10px 20px -8px rgba(50,80,40,0.25); }
+        .btn-primary:hover { background: #2d4927; }
+        .btn-outline { border-color: #a8c69b; background: rgba(225,245,225,0.6); color: #295526; }
+        .btn-outline:hover { background: rgba(200,235,200,0.7); }
+        .btn-sm { padding: 8px 20px; font-size: 0.85rem; }
+        .hint-text { font-size: 0.8rem; color: #5d7353; display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+        .action-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin: 18px 0 10px; }
+        .stats-badge { background: rgba(205,230,200,0.6); backdrop-filter: blur(4px); padding: 8px 20px; border-radius: 40px; font-size: 0.9rem; color: #1d4518; font-weight: 500; }
+        .table-wrapper { overflow-x: auto; margin: 16px 0 8px; border-radius: 28px; border: 1px solid rgba(140,175,130,0.4); background: rgba(255,255,250,0.5); backdrop-filter: blur(4px); }
+        table { width: 100%; border-collapse: collapse; min-width: 750px; font-size: 0.9rem; }
+        th { text-align: left; padding: 16px 14px; background: rgba(215,235,210,0.5); font-weight: 600; color: #314f2a; border-bottom: 2px solid #b5cfaa; }
+        td { padding: 14px 14px; border-bottom: 1px solid #d4e4cc; }
+        .mono-num { font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+        .mean-highlight { background: rgba(185,215,175,0.5); border-radius: 30px; padding: 4px 14px; display: inline-block; font-weight: 600; }
+        input[type="checkbox"] { width: 20px; height: 20px; accent-color: #5b8c4e; cursor: pointer; }
+        .delete-btn { background: none; border: none; color: #80927a; font-size: 1.3rem; cursor: pointer; padding: 6px 10px; border-radius: 30px; transition: 0.15s; }
+        .delete-btn:hover { background: rgba(200,100,90,0.12); color: #ba5d4a; }
+        .fit-result { display: flex; flex-wrap: wrap; align-items: baseline; gap: 24px 40px; margin-top: 12px; }
+        .equation { font-size: 2rem; font-weight: 550; background: linear-gradient(135deg, #2d4525, #3d5a34); background-clip: text; -webkit-background-clip: text; color: transparent; }
+        .rsquared { background: rgba(180,215,170,0.5); backdrop-filter: blur(4px); padding: 8px 22px; border-radius: 40px; font-weight: 600; color: #15572e; font-size: 1.2rem; }
+        .chart-container { margin-top: 28px; height: 280px; position: relative; }
+        .note { color: #54694a; font-size: 0.85rem; margin-top: 12px; }
+        hr { border: none; border-top: 1px solid rgba(130,160,120,0.3); margin: 20px 0; }
+        .task-section { margin-top: 24px; }
+        .task-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+        .task-list { background: rgba(255,255,250,0.4); backdrop-filter: blur(4px); border-radius: 24px; border: 1px solid rgba(150,185,140,0.4); overflow-x: auto; }
         .task-table { width: 100%; min-width: 700px; border-collapse: collapse; }
-        .task-table th { background: rgba(225, 238, 255, 0.5); }
-        .task-name-input {
-            padding: 10px 16px;
-            border-radius: 40px;
-            border: 1.5px solid #cddef5;
-            background: rgba(255,255,255,0.7);
-            width: 200px;
-        }
-        .toast-tip {
-            background: rgba(220, 235, 250, 0.6);
-            border-radius: 30px;
-            padding: 4px 16px;
-            font-size: 0.8rem;
-            color: #1f4a7a;
-        }
-        .empty-message {
-            color: #7f95b0;
-            font-style: italic;
-            padding: 24px;
-            text-align: center;
-        }
+        .task-table th { background: rgba(215,235,210,0.5); }
+        .task-name-input { padding: 10px 18px; border-radius: 40px; border: 1.5px solid rgba(140,165,130,0.5); background: rgba(255,255,255,0.7); }
+        .toast-tip { background: rgba(185,215,175,0.5); border-radius: 30px; padding: 4px 18px; font-size: 0.8rem; color: #1e4a1a; }
+        .empty-message { color: #6e8463; font-style: italic; padding: 22px; text-align: center; }
+        .leaf-decor { font-size: 2rem; opacity: 0.5; user-select: none; }
     </style>
 </head>
 <body>
 <div class="app-container">
     <div class="card">
-        <h1>
-            <span>🌿 平行均值 · 线性拟合</span>
-            <span class="toast-tip">本地保存 · 关闭后数据仍在</span>
-        </h1>
+        <h1><span class="leaf-decor">🌱</span> 自然 · 双模拟合实验室</h1>
         <div class="subtitle">
-            每组输入3个平行值 → 自动平均 → X = 输入序号 → 最小二乘拟合
-            <span style="margin-left: 16px;">✨ 粘贴：复制Excel三个连续数值，直接粘贴到任一框</span>
+            <span>🌿 模式一：三平行均值 → 自定义X拟合</span>
+            <span style="margin:0 10px;">|</span>
+            <span>🍃 模式二：直接粘贴多点求斜率</span>
         </div>
 
-        <!-- 输入区 -->
-        <div class="input-panel">
-            <div class="triple-input">
-                <div class="input-group"><label>平行 ①</label><input type="text" id="val1" placeholder="1.0" autocomplete="off"></div>
-                <div class="input-group"><label>平行 ②</label><input type="text" id="val2" placeholder="1.2" autocomplete="off"></div>
-                <div class="input-group"><label>平行 ③</label><input type="text" id="val3" placeholder="0.9" autocomplete="off"></div>
+        <div class="mode-tabs">
+            <button class="mode-btn active" id="mode1Btn">🌾 模式一：平行均值（标准曲线）</button>
+            <button class="mode-btn" id="mode2Btn">🍂 模式二：快速多点拟合（斜率）</button>
+        </div>
+
+        <div id="mode1Panel">
+            <div class="input-panel">
+                <div class="triple-input">
+                    <div class="input-group"><label>X 值</label><input type="text" id="xVal1" placeholder="序号" autocomplete="off"></div>
+                    <div class="input-group"><label>平行 ①</label><input type="text" id="val1" placeholder="第一个" autocomplete="off"></div>
+                    <div class="input-group"><label>平行 ②</label><input type="text" id="val2" placeholder="第二个" autocomplete="off"></div>
+                    <div class="input-group"><label>平行 ③</label><input type="text" id="val3" placeholder="第三个" autocomplete="off"></div>
+                </div>
+                <button class="btn btn-primary" id="addGroupBtn1">➕ 添加数据组</button>
+                <button class="btn btn-outline" id="clearAllBtn1">🧹 清空</button>
             </div>
-            <button class="btn btn-primary" id="addGroupBtn">➕ 添加数据组</button>
-            <button class="btn btn-outline-blue" id="clearAllBtn">🗑️ 清空全部</button>
+            <div class="hint-text">💡 智能粘贴：从Excel复制三个数值，粘贴到任意平行框自动拆分。 X可自定义，留空则为递增序号。</div>
         </div>
-        <div class="paste-hint">💡 智能粘贴：从Excel/Prism复制三个数值（如 18207 18462 18466），粘贴到任意框自动拆分。</div>
 
-        <!-- 工具栏 -->
+        <div id="mode2Panel" style="display: none;">
+            <div class="input-panel" style="flex-direction: column; align-items: stretch;">
+                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    <span style="font-weight: 500;">📥 粘贴数据 (竖向/横向均可)：</span>
+                    <button class="btn btn-sm btn-outline" id="parsePasteBtn2">🔍 识别并填充</button>
+                    <button class="btn btn-sm btn-outline" id="addSinglePointBtn2">➕ 手动添加一个点</button>
+                    <button class="btn btn-sm btn-outline" id="clearAllBtn2">🧹 清空全部点</button>
+                </div>
+                <textarea class="paste-area" id="pasteArea2" placeholder="从Excel复制一列或一行数值，例如：&#10;1.23&#10;2.45&#10;3.67&#10;或者横向：1.23, 2.45, 3.67"></textarea>
+                <div class="hint-text">✨ 支持换行、制表、逗号、空格分隔。X自动为自然序号1,2,3…</div>
+            </div>
+        </div>
+
         <div class="action-bar">
-            <div class="stats-badge" id="statsInfo">暂无数据</div>
+            <div class="stats-badge" id="statsInfo">🌱 暂无数据</div>
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-sm" id="selectAllBtn">✅ 全选</button>
                 <button class="btn btn-sm" id="deselectAllBtn">⬜ 全不选</button>
             </div>
         </div>
 
-        <!-- 数据表格 -->
         <div class="table-wrapper">
             <table>
-                <thead><tr><th>序号 X</th><th>平行1</th><th>平行2</th><th>平行3</th><th>平均值 Y</th><th>纳入拟合</th><th>操作</th></tr></thead>
+                <thead id="tableHeader"></thead>
                 <tbody id="tableBody"></tbody>
             </table>
         </div>
-        <div id="noDataMessage" class="empty-message">✨ 点击上方添加数据组，每组三个平行值</div>
+        <div id="noDataMessage" class="empty-message">🍃 请添加数据组</div>
 
-        <!-- 拟合结果 -->
         <div style="margin-top: 24px;">
             <div class="fit-result">
-                <div><span style="font-weight:500;color:#42638b;">拟合直线</span> <span class="equation" id="equationDisplay">y = —</span></div>
+                <div><span style="font-weight:500;color:#476541;">拟合直线</span> <span class="equation" id="equationDisplay">y = —</span></div>
                 <div><span class="rsquared" id="r2Display">R² = —</span></div>
             </div>
             <div class="chart-container"><canvas id="fitChart"></canvas></div>
             <div class="note" id="fitNote">⚡ 基于勾选的数据点进行线性回归。</div>
         </div>
-        
+
         <hr>
-        <div class="footer-actions">
-            <button class="btn btn-sm" id="addExampleBtn">📋 载入示例数据</button>
+        <div style="display: flex; gap: 12px;">
+            <button class="btn btn-sm" id="addExampleBtn">📋 加载示例</button>
         </div>
 
-        <!-- 任务管理 -->
+        <!-- 任务管理区域（独立刷新） -->
         <div class="task-section">
             <div class="task-header">
-                <h3>📋 已保存的拟合任务</h3>
+                <h3 id="taskModeTitle">📋 已保存的拟合任务（模式一）</h3>
                 <div style="display: flex; gap: 12px;">
                     <input type="text" id="newTaskName" class="task-name-input" placeholder="任务名称 (可选)">
                     <button class="btn btn-primary btn-sm" id="saveTaskBtn">💾 保存当前拟合</button>
@@ -372,11 +188,10 @@
                     <tbody id="taskTableBody"></tbody>
                 </table>
             </div>
-            <div id="noTaskMsg" class="empty-message" style="padding:16px;">📭 暂无保存的任务，点击“保存当前拟合”</div>
-            <div class="task-actions" style="margin-top:20px; display:flex; gap:14px;">
-                <button class="btn btn-outline-blue" id="exportSelectedTasksBtn">📤 导出选中的任务 (CSV)</button>
+            <div id="noTaskMsg" class="empty-message">📭 暂无保存的任务</div>
+            <div style="margin-top:20px; display:flex; gap:14px;">
+                <button class="btn btn-outline" id="exportSelectedTasksBtn">📤 导出选中的任务 (CSV)</button>
                 <button class="btn btn-sm" id="clearAllTasksBtn">🧹 清空所有任务</button>
-                <span style="margin-left: auto; font-size:0.8rem; color:#527198;">勾选任务后导出Excel格式</span>
             </div>
         </div>
     </div>
@@ -384,57 +199,26 @@
 
 <script>
     (function(){
-        "use strict";
+        // ---------- 存储键 ----------
+        const STORAGE_MODE = 'fitLab_mode';
+        const STORAGE_DATA1 = 'fitLab_data_mode1';
+        const STORAGE_DATA2 = 'fitLab_data_mode2';
+        const STORAGE_TASKS1 = 'fitLab_tasks_mode1';
+        const STORAGE_TASKS2 = 'fitLab_tasks_mode2';
 
-        // ---------- 🌟 状态管理 (数据与任务) ----------
-        let dataPoints = [];            // 原始数据组: { id, values, mean, included }
-        let savedTasks = [];            // 任务列表: { id, name, equation, r2, slope, pointCount }
+        let currentMode = 1;
+        let dataPoints1 = [];
+        let dataPoints2 = [];
+        let savedTasks1 = [];
+        let savedTasks2 = [];
         let chartInstance = null;
 
-        // ---------- 🧠 本地存储 (关闭后数据仍在) ----------
-        const STORAGE_DATA_KEY = 'fitLab_dataPoints';
-        const STORAGE_TASKS_KEY = 'fitLab_savedTasks';
-
-        // 加载本地存储
-        function loadFromStorage() {
-            try {
-                const savedData = localStorage.getItem(STORAGE_DATA_KEY);
-                if (savedData) dataPoints = JSON.parse(savedData);
-                const savedTasks = localStorage.getItem(STORAGE_TASKS_KEY);
-                if (savedTasks) savedTasks = JSON.parse(savedTasks);
-            } catch (e) {
-                console.warn("读取存储失败", e);
-            }
-            // 如果没有数据，给个友好的初始示例
-            if (!dataPoints || dataPoints.length === 0) {
-                dataPoints = [
-                    { id: 'd1', values: [1.0, 1.2, 0.9], mean: 1.03333, included: true },
-                    { id: 'd2', values: [2.1, 2.4, 1.9], mean: 2.13333, included: true },
-                    { id: 'd3', values: [3.0, 3.3, 2.8], mean: 3.03333, included: true }
-                ];
-            }
-            if (!savedTasks) savedTasks = [];
-        }
-        // 保存数据到本地
-        function saveDataToStorage() {
-            localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(dataPoints));
-        }
-        function saveTasksToStorage() {
-            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(savedTasks));
-        }
-
-        // 加载存储
-        loadFromStorage();
-
-        // ---------- DOM 元素 ----------
-        const val1 = document.getElementById('val1');
-        const val2 = document.getElementById('val2');
-        const val3 = document.getElementById('val3');
-        const addBtn = document.getElementById('addGroupBtn');
-        const clearAllBtn = document.getElementById('clearAllBtn');
-        const selectAllBtn = document.getElementById('selectAllBtn');
-        const deselectAllBtn = document.getElementById('deselectAllBtn');
-        const addExampleBtn = document.getElementById('addExampleBtn');
+        // DOM 元素
+        const mode1Btn = document.getElementById('mode1Btn');
+        const mode2Btn = document.getElementById('mode2Btn');
+        const mode1Panel = document.getElementById('mode1Panel');
+        const mode2Panel = document.getElementById('mode2Panel');
+        const tableHeader = document.getElementById('tableHeader');
         const tableBody = document.getElementById('tableBody');
         const noDataMsg = document.getElementById('noDataMessage');
         const statsInfo = document.getElementById('statsInfo');
@@ -444,7 +228,23 @@
         const canvas = document.getElementById('fitChart');
         const ctx = canvas.getContext('2d');
 
-        // 任务相关
+        const xVal1 = document.getElementById('xVal1');
+        const val1 = document.getElementById('val1');
+        const val2 = document.getElementById('val2');
+        const val3 = document.getElementById('val3');
+        const addGroupBtn1 = document.getElementById('addGroupBtn1');
+        const clearAllBtn1 = document.getElementById('clearAllBtn1');
+
+        const pasteArea2 = document.getElementById('pasteArea2');
+        const parsePasteBtn2 = document.getElementById('parsePasteBtn2');
+        const addSinglePointBtn2 = document.getElementById('addSinglePointBtn2');
+        const clearAllBtn2 = document.getElementById('clearAllBtn2');
+
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const deselectAllBtn = document.getElementById('deselectAllBtn');
+        const addExampleBtn = document.getElementById('addExampleBtn');
+
+        const taskModeTitle = document.getElementById('taskModeTitle');
         const taskTableBody = document.getElementById('taskTableBody');
         const noTaskMsg = document.getElementById('noTaskMsg');
         const newTaskNameInput = document.getElementById('newTaskName');
@@ -453,309 +253,384 @@
         const exportSelectedBtn = document.getElementById('exportSelectedTasksBtn');
         const clearAllTasksBtn = document.getElementById('clearAllTasksBtn');
 
-        // ---------- 🧮 辅助函数：平均值 ----------
-        function computeMean(v1,v2,v3) { return (v1+v2+v3)/3; }
+        // ---------- 存储操作 ----------
+        function saveData() {
+            localStorage.setItem(STORAGE_MODE, currentMode);
+            localStorage.setItem(STORAGE_DATA1, JSON.stringify(dataPoints1));
+            localStorage.setItem(STORAGE_DATA2, JSON.stringify(dataPoints2));
+            localStorage.setItem(STORAGE_TASKS1, JSON.stringify(savedTasks1));
+            localStorage.setItem(STORAGE_TASKS2, JSON.stringify(savedTasks2));
+        }
+        function loadData() {
+            currentMode = parseInt(localStorage.getItem(STORAGE_MODE) || '1');
+            try {
+                const d1 = localStorage.getItem(STORAGE_DATA1);
+                if(d1) dataPoints1 = JSON.parse(d1);
+                const d2 = localStorage.getItem(STORAGE_DATA2);
+                if(d2) dataPoints2 = JSON.parse(d2);
+                const t1 = localStorage.getItem(STORAGE_TASKS1);
+                if(t1) savedTasks1 = JSON.parse(t1);
+                const t2 = localStorage.getItem(STORAGE_TASKS2);
+                if(t2) savedTasks2 = JSON.parse(t2);
+            } catch(e){}
+            if(!dataPoints1 || dataPoints1.length===0) {
+                dataPoints1 = [
+                    { id: 'd1', x: 1, values:[1.0,1.2,0.9], mean:1.0333, included:true },
+                    { id: 'd2', x: 2, values:[2.1,2.4,1.9], mean:2.1333, included:true },
+                    { id: 'd3', x: 3, values:[3.0,3.3,2.8], mean:3.0333, included:true }
+                ];
+            }
+            if(!dataPoints2) dataPoints2 = [];
+            if(!savedTasks1) savedTasks1 = [];
+            if(!savedTasks2) savedTasks2 = [];
+        }
 
-        // ---------- ✂️ 智能粘贴解析 (支持制表符、空格、逗号、分号) ----------
-        function parsePastedTriple(text) {
-            if (!text) return [];
+        function getActiveData() { return currentMode===1 ? dataPoints1 : dataPoints2; }
+        function getActiveTasks() { return currentMode===1 ? savedTasks1 : savedTasks2; }
+
+        // ---------- 工具函数 ----------
+        function computeMean(a,b,c) { return (a+b+c)/3; }
+        function parseNumbersFromText(text) {
+            if(!text) return [];
             const parts = text.split(/[\t,; \n]+/).filter(s => s.trim()!=='');
             const nums = [];
-            for (let p of parts) {
-                const num = parseFloat(p.replace(/,/g,'')); // 允许千位分隔符
-                if (!isNaN(num)) nums.push(num);
-                if (nums.length>=3) break;
+            for(let p of parts) {
+                const num = parseFloat(p.replace(/,/g,''));
+                if(!isNaN(num)) nums.push(num);
             }
             return nums;
         }
-        function handlePaste(e) {
+
+        function handlePasteMode1(e) {
             const pasted = (e.clipboardData || window.clipboardData).getData('Text');
-            const nums = parsePastedTriple(pasted);
-            if (nums.length >= 3) {
+            const nums = parseNumbersFromText(pasted);
+            if(nums.length >= 3) {
                 e.preventDefault();
-                val1.value = nums[0];
-                val2.value = nums[1];
-                val3.value = nums[2];
+                val1.value = nums[0]; val2.value = nums[1]; val3.value = nums[2];
                 [val1,val2,val3].forEach(i=>{ i.style.backgroundColor='#e0f0e0'; setTimeout(()=>i.style.backgroundColor='',200); });
             }
         }
-        [val1,val2,val3].forEach(i=>i.addEventListener('paste', handlePaste));
+        [val1,val2,val3].forEach(i=>i.addEventListener('paste', handlePasteMode1));
 
-        // ---------- 📈 线性回归 (最小二乘) ----------
         function linearRegression(points) {
             const n = points.length;
-            if (n<2) return { slope:null, intercept:null, r2:null };
+            if(n<2) return {slope:null, intercept:null, r2:null};
             let sx=0, sy=0, sxy=0, sx2=0, sy2=0;
             points.forEach(p=>{ sx+=p.x; sy+=p.y; sxy+=p.x*p.y; sx2+=p.x*p.x; sy2+=p.y*p.y; });
             const denom = n*sx2 - sx*sx;
-            if (denom===0) return { slope:null, intercept:null, r2:null };
+            if(denom===0) return {slope:null, intercept:null, r2:null};
             const slope = (n*sxy - sx*sy)/denom;
             const intercept = (sy - slope*sx)/n;
             const yMean = sy/n;
             let ssRes=0, ssTot=0;
             points.forEach(p=>{ const yPred=slope*p.x+intercept; ssRes+=(p.y-yPred)**2; ssTot+=(p.y-yMean)**2; });
             const r2 = ssTot===0 ? 1 : 1 - ssRes/ssTot;
-            return { slope, intercept, r2 };
+            return {slope, intercept, r2};
         }
 
         function getSelectedPoints() {
-            return dataPoints.map((item,idx)=>({ x:idx+1, y:item.mean, included:item.included })).filter(p=>p.included);
-        }
-        function getAllPointsForChart() {
-            return dataPoints.map((item,idx)=>({ x:idx+1, y:item.mean, included:item.included }));
-        }
-
-        // ---------- 🔄 核心刷新：表格、统计、图表、并保存数据 ----------
-        function refreshUI() {
-            renderDataTable();
-            updateStatsAndFit();
-            updateChart();
-            saveDataToStorage();   // 每次变动都保存数据
+            const data = getActiveData();
+            if(currentMode===1) {
+                return data.filter(d=>d.included).map(d=>({x: d.x, y: d.mean}));
+            } else {
+                return data.filter(d=>d.included).map((d,idx)=>({x: idx+1, y: d.y}));
+            }
         }
 
-        function renderDataTable() {
-            if (dataPoints.length===0) {
-                tableBody.innerHTML=''; noDataMsg.style.display='block'; return;
+        // ---------- 表格渲染 ----------
+        function renderTable() {
+            const data = getActiveData();
+            if(data.length===0) {
+                tableBody.innerHTML=''; noDataMsg.style.display='block';
+                if(currentMode===1) tableHeader.innerHTML = '<tr><th>X</th><th>平行1</th><th>平行2</th><th>平行3</th><th>平均值</th><th>纳入</th><th>操作</th></tr>';
+                else tableHeader.innerHTML = '<tr><th>序号X</th><th>Y值</th><th>纳入</th><th>操作</th></tr>';
+                return;
             }
             noDataMsg.style.display='none';
             let html='';
-            dataPoints.forEach((item,idx)=>{
-                const x=idx+1, [v1,v2,v3]=item.values;
-                const mean=item.mean, inc=item.included, id=item.id;
-                const fmt = n => Number.isInteger(n)?n.toString():parseFloat(n.toFixed(6)).toString();
-                html+=`<tr><td class="mono-num">${x}</td><td class="mono-num">${fmt(v1)}</td><td class="mono-num">${fmt(v2)}</td><td class="mono-num">${fmt(v3)}</td>
-                    <td><span class="mean-highlight mono-num">${fmt(mean)}</span></td>
-                    <td style="text-align:center;"><input type="checkbox" class="include-checkbox" data-id="${id}" ${inc?'checked':''}></td>
-                    <td style="text-align:center;"><button class="delete-btn" data-id="${id}">✕</button></td></tr>`;
-            });
-            tableBody.innerHTML=html;
+            if(currentMode===1) {
+                tableHeader.innerHTML = '<tr><th>X</th><th>平行1</th><th>平行2</th><th>平行3</th><th>平均值</th><th>纳入</th><th>操作</th></tr>';
+                data.forEach(d=>{
+                    const fmt = n => Number.isInteger(n)?n.toString():parseFloat(n.toFixed(6)).toString();
+                    html+=`<tr><td class="mono-num">${d.x}</td><td class="mono-num">${fmt(d.values[0])}</td><td class="mono-num">${fmt(d.values[1])}</td>
+                    <td class="mono-num">${fmt(d.values[2])}</td><td><span class="mean-highlight mono-num">${fmt(d.mean)}</span></td>
+                    <td><input type="checkbox" class="include-checkbox" data-id="${d.id}" ${d.included?'checked':''}></td>
+                    <td><button class="delete-btn" data-id="${d.id}">✕</button></td></tr>`;
+                });
+            } else {
+                tableHeader.innerHTML = '<tr><th>序号X</th><th>Y值</th><th>纳入</th><th>操作</th></tr>';
+                data.forEach((d,idx)=>{
+                    html+=`<tr><td class="mono-num">${idx+1}</td><td class="mono-num">${d.y}</td>
+                    <td><input type="checkbox" class="include-checkbox" data-id="${d.id}" ${d.included?'checked':''}></td>
+                    <td><button class="delete-btn" data-id="${d.id}">✕</button></td></tr>`;
+                });
+            }
+            tableBody.innerHTML = html;
         }
 
         function updateStatsAndFit() {
             const selected = getSelectedPoints();
-            const total = dataPoints.length;
-            const selCnt = selected.length;
-            statsInfo.innerText = `📌 总数据组: ${total}  ·  参与拟合: ${selCnt} 组`;
-            if (selCnt<2) {
+            const total = getActiveData().length;
+            statsInfo.innerText = `🌿 总点数: ${total}  ·  参与拟合: ${selected.length}`;
+            if(selected.length<2) {
                 eqDisplay.innerText='y = —'; r2Display.innerText='R² = —';
-                fitNote.innerHTML='⚡ 需要至少2个选中点才能拟合。'; return;
+                fitNote.innerHTML='⚡ 至少需要2个选中点进行拟合。'; return;
             }
             const reg = linearRegression(selected);
-            if (reg.slope===null) return;
+            if(reg.slope === null || reg.slope === undefined || isNaN(reg.slope)) {
+                eqDisplay.innerText='y = —'; r2Display.innerText='R² = —';
+                return;
+            }
             const {slope, intercept, r2} = reg;
-            const slopeStr=slope.toFixed(4), interceptStr=intercept.toFixed(4);
-            const sign=intercept>=0?'+':'−';
-            eqDisplay.innerText=`y = ${slopeStr}·x ${sign} ${Math.abs(intercept).toFixed(4)}`;
-            r2Display.innerText=`R² = ${r2.toFixed(4)}`;
-            fitNote.innerHTML=`📈 拟合基于 ${selCnt} 个点。`;
+            eqDisplay.innerText = `y = ${slope.toFixed(4)}·x ${intercept>=0?'+':'−'} ${Math.abs(intercept).toFixed(4)}`;
+            r2Display.innerText = `R² = ${r2.toFixed(4)}`;
+            fitNote.innerHTML = `📈 基于 ${selected.length} 个点拟合。`;
         }
 
         function updateChart() {
-            if(chartInstance){ chartInstance.destroy(); chartInstance=null; }
-            const all = getAllPointsForChart();
-            if(all.length===0){ chartInstance=new Chart(ctx,{type:'scatter',data:{datasets:[]}}); return; }
-            const selPts=all.filter(p=>p.included), unselPts=all.filter(p=>!p.included);
-            const datasets=[];
-            if(unselPts.length) datasets.push({label:'未纳入',data:unselPts.map(p=>({x:p.x,y:p.y})),backgroundColor:'#b7c9dd',borderColor:'#8ba0bc',pointRadius:6,order:2});
-            if(selPts.length) datasets.push({label:'纳入拟合',data:selPts.map(p=>({x:p.x,y:p.y})),backgroundColor:'#5479b0',borderColor:'#2e4f7a',pointRadius:7,order:1});
-            if(selPts.length>=2){
-                const reg=linearRegression(selPts);
-                if(reg.slope!==null){
-                    const xs=selPts.map(p=>p.x), minX=Math.min(...xs), maxX=Math.max(...xs);
-                    datasets.push({label:'拟合直线',data:[{x:minX,y:reg.slope*minX+reg.intercept},{x:maxX,y:reg.slope*maxX+reg.intercept}],
-                        type:'line',borderColor:'#b1624d',borderWidth:2.8,pointRadius:0,fill:false,order:0});
+            if(chartInstance) { chartInstance.destroy(); chartInstance=null; }
+            const selected = getSelectedPoints();
+            const allPts = getActiveData();
+            if(allPts.length===0) { chartInstance = new Chart(ctx,{type:'scatter',data:{datasets:[]}}); return; }
+            const datasets = [];
+            const unselected = [];
+            if(currentMode===1) {
+                allPts.forEach(d=>{ if(!d.included) unselected.push({x:d.x, y:d.mean}); });
+            } else {
+                allPts.forEach((d,idx)=>{ if(!d.included) unselected.push({x:idx+1, y:d.y}); });
+            }
+            if(unselected.length) datasets.push({label:'未纳入',data:unselected,backgroundColor:'#c8d6c0',borderColor:'#9bb38b',pointRadius:6,order:2});
+            if(selected.length) datasets.push({label:'纳入拟合',data:selected,backgroundColor:'#5b8c4e',borderColor:'#3a5c2e',pointRadius:7,order:1});
+            if(selected.length>=2) {
+                const reg = linearRegression(selected);
+                if(reg.slope !== null && !isNaN(reg.slope)) {
+                    const xs = selected.map(p=>p.x), minX=Math.min(...xs), maxX=Math.max(...xs);
+                    datasets.push({label:'拟合线',data:[{x:minX,y:reg.slope*minX+reg.intercept},{x:maxX,y:reg.slope*maxX+reg.intercept}],
+                        type:'line',borderColor:'#c97b5b',borderWidth:2.8,pointRadius:0,fill:false,order:0});
                 }
             }
-            chartInstance=new Chart(ctx,{type:'scatter',data:{datasets},options:{responsive:true,maintainAspectRatio:false,
-                plugins:{tooltip:{callbacks:{label:(c)=>`X = ${c.parsed.x}  ·  Y = ${c.parsed.y.toFixed(4)}`}},legend:{labels:{usePointStyle:true}}},
-                scales:{x:{title:{display:true,text:'序号 X'},ticks:{stepSize:1}},y:{title:{display:true,text:'平均值 Y'}}}}});
+            chartInstance = new Chart(ctx,{type:'scatter',data:{datasets},options:{responsive:true,maintainAspectRatio:false,
+                plugins:{tooltip:{callbacks:{label:(c)=>`X=${c.parsed.x}, Y=${c.parsed.y.toFixed(4)}`}},legend:{labels:{usePointStyle:true}}},
+                scales:{x:{title:{display:true,text:'X'},ticks:{stepSize:1}},y:{title:{display:true,text:'Y'}}}}});
         }
 
-        // ---------- ✏️ 数据操作 (增删改) ----------
-        function addGroup(){
-            const v1=parseFloat(val1.value), v2=parseFloat(val2.value), v3=parseFloat(val3.value);
-            if(isNaN(v1)||isNaN(v2)||isNaN(v3)){ alert('请输入三个有效数字'); return; }
-            dataPoints.push({ id:Date.now()+Math.random().toString(36), values:[v1,v2,v3], mean:computeMean(v1,v2,v3), included:true });
-            val1.value=val2.value=val3.value=''; val1.focus();
+        function refreshUI() {
+            renderTable();
+            updateStatsAndFit();
+            updateChart();
+            renderTaskList();
+            saveData();
+        }
+
+        // ---------- 模式切换（修复任务刷新） ----------
+        function switchMode(mode) {
+            if(currentMode===mode) return;
+            currentMode = mode;
+            if(mode===1) {
+                mode1Btn.classList.add('active'); mode2Btn.classList.remove('active');
+                mode1Panel.style.display='block'; mode2Panel.style.display='none';
+                taskModeTitle.innerText = '📋 已保存的拟合任务（模式一）';
+            } else {
+                mode2Btn.classList.add('active'); mode1Btn.classList.remove('active');
+                mode1Panel.style.display='none'; mode2Panel.style.display='block';
+                taskModeTitle.innerText = '📋 已保存的拟合任务（模式二）';
+            }
+            // 重置全选框
+            selectAllTasksChk.checked = false;
+            // 显式刷新任务列表（双重保障）
+            renderTaskList();
             refreshUI();
         }
-        function deleteById(id){ dataPoints=dataPoints.filter(d=>d.id!==id); refreshUI(); }
-        function toggleInclude(id,checked){ const d=dataPoints.find(d=>d.id===id); if(d){ d.included=checked; refreshUI(); } }
-        function setAllIncluded(val){ dataPoints.forEach(d=>d.included=val); refreshUI(); }
-        function clearAll(){ if(dataPoints.length&&confirm('清空所有数据？')){ dataPoints=[]; refreshUI(); } }
-        function loadExample(){
-            dataPoints=[ 
-                {id:'ex1',values:[1.0,1.2,0.9],mean:1.03333,included:true},
-                {id:'ex2',values:[2.1,2.4,1.9],mean:2.13333,included:true},
-                {id:'ex3',values:[3.2,3.0,3.5],mean:3.23333,included:true},
-                {id:'ex4',values:[4.0,4.3,4.1],mean:4.13333,included:true}
-            ]; refreshUI();
+
+        // ---------- 模式一操作 ----------
+        function addGroupMode1() {
+            let xInput = xVal1.value.trim();
+            let x = xInput ? parseFloat(xInput) : (dataPoints1.length ? Math.max(...dataPoints1.map(d=>d.x))+1 : 1);
+            if(isNaN(x)) x = dataPoints1.length+1;
+            const v1=parseFloat(val1.value), v2=parseFloat(val2.value), v3=parseFloat(val3.value);
+            if(isNaN(v1)||isNaN(v2)||isNaN(v3)) { alert('请填写三个有效数字'); return; }
+            dataPoints1.push({ id:Date.now()+Math.random(), x, values:[v1,v2,v3], mean:computeMean(v1,v2,v3), included:true });
+            xVal1.value=''; val1.value=''; val2.value=''; val3.value='';
+            refreshUI();
         }
 
-        // ---------- 📋 任务管理 (保存/渲染/导出) ----------
+        // ---------- 模式二操作 ----------
+        function parseAndAddPoints2() {
+            const text = pasteArea2.value;
+            const nums = parseNumbersFromText(text);
+            if(nums.length===0) { alert('未识别到有效数字'); return; }
+            nums.forEach(y => dataPoints2.push({ id:Date.now()+Math.random(), y, included:true }));
+            pasteArea2.value = '';
+            refreshUI();
+        }
+        function addSinglePoint2() {
+            const y = prompt('输入Y值：');
+            if(y===null) return;
+            const num = parseFloat(y);
+            if(isNaN(num)) { alert('无效数字'); return; }
+            dataPoints2.push({ id:Date.now()+Math.random(), y:num, included:true });
+            refreshUI();
+        }
+
+        // 通用
+        function deleteById(id) {
+            if(currentMode===1) dataPoints1 = dataPoints1.filter(d=>d.id!==id);
+            else dataPoints2 = dataPoints2.filter(d=>d.id!==id);
+            refreshUI();
+        }
+        function toggleInclude(id, checked) {
+            const data = getActiveData();
+            const item = data.find(d=>d.id===id);
+            if(item) { item.included = checked; refreshUI(); }
+        }
+        function setAllIncluded(val) {
+            getActiveData().forEach(d=>d.included=val);
+            refreshUI();
+        }
+        function clearAll() {
+            if(getActiveData().length && confirm('清空当前模式所有数据？')) {
+                if(currentMode===1) dataPoints1=[]; else dataPoints2=[];
+                refreshUI();
+            }
+        }
+        function loadExample() {
+            if(currentMode===1) {
+                dataPoints1=[ 
+                    {id:'e1',x:1,values:[1.0,1.2,0.9],mean:1.0333,included:true},
+                    {id:'e2',x:2,values:[2.1,2.4,1.9],mean:2.1333,included:true},
+                    {id:'e3',x:3,values:[3.2,3.0,3.5],mean:3.2333,included:true},
+                    {id:'e4',x:4,values:[4.0,4.3,4.1],mean:4.1333,included:true}
+                ];
+            } else {
+                dataPoints2=[ 
+                    {id:'p1',y:1.23,included:true},{id:'p2',y:2.45,included:true},
+                    {id:'p3',y:3.67,included:true},{id:'p4',y:4.89,included:true}
+                ];
+            }
+            refreshUI();
+        }
+
+        // ---------- 任务管理（分离且确保刷新） ----------
         function getCurrentFitInfo() {
             const sel = getSelectedPoints();
-            if (sel.length < 2) return null;
+            if(sel.length < 2) return null;
             const reg = linearRegression(sel);
-            if (!reg.slope) return null;
+            if(!reg || reg.slope === null || reg.slope === undefined || isNaN(reg.slope)) return null;
             const eq = `y = ${reg.slope.toFixed(4)}·x ${reg.intercept>=0?'+':'−'} ${Math.abs(reg.intercept).toFixed(4)}`;
             return { equation: eq, r2: reg.r2, slope: reg.slope, pointCount: sel.length };
         }
 
         function renderTaskList() {
-            if (savedTasks.length === 0) {
-                taskTableBody.innerHTML = ''; noTaskMsg.style.display = 'block';
-                selectAllTasksChk.checked = false;
-                return;
+            const tasks = getActiveTasks();
+            if(tasks.length===0) {
+                taskTableBody.innerHTML=''; noTaskMsg.style.display='block';
+                selectAllTasksChk.checked=false; return;
             }
-            noTaskMsg.style.display = 'none';
-            let html = '';
-            savedTasks.forEach(task => {
-                html += `<tr>
-                    <td><input type="checkbox" class="task-checkbox" data-taskid="${task.id}"></td>
-                    <td><strong>${task.name}</strong></td>
-                    <td class="mono-num">${task.equation}</td>
-                    <td>${task.r2.toFixed(4)}</td>
-                    <td>${task.slope.toFixed(4)}</td>
-                    <td>${task.pointCount}</td>
-                    <td><button class="delete-btn task-delete" data-taskid="${task.id}">✕</button></td>
-                </tr>`;
+            noTaskMsg.style.display='none';
+            let html='';
+            tasks.forEach(t=>{
+                html+=`<tr><td><input type="checkbox" class="task-checkbox" data-taskid="${t.id}"></td>
+                <td><strong>${t.name}</strong></td><td class="mono-num">${t.equation}</td>
+                <td>${t.r2.toFixed(4)}</td><td>${t.slope.toFixed(4)}</td><td>${t.pointCount}</td>
+                <td><button class="delete-btn task-delete" data-taskid="${t.id}">✕</button></td></tr>`;
             });
-            taskTableBody.innerHTML = html;
+            taskTableBody.innerHTML=html;
         }
 
         function saveCurrentTask() {
             const info = getCurrentFitInfo();
-            if (!info) { alert('当前没有足够的选中点（至少2个）可拟合，无法保存。'); return; }
-            let name = newTaskNameInput.value.trim();
-            if (!name) name = `任务${savedTasks.length+1}`;
-            const newTask = {
-                id: Date.now() + Math.random().toString(36),
-                name, equation: info.equation, r2: info.r2, slope: info.slope, pointCount: info.pointCount
-            };
-            savedTasks.push(newTask);
-            newTaskNameInput.value = '';
+            if(!info) {
+                alert('当前拟合不可用，请确保：\n- 至少勾选两个数据点\n- 点不全部共线且X不全部相同');
+                return;
+            }
+            let name = newTaskNameInput.value.trim() || `任务${getActiveTasks().length+1}`;
+            const newTask = { id: Date.now()+Math.random().toString(36), name, ...info };
+            if(currentMode===1) {
+                savedTasks1.push(newTask);
+            } else {
+                savedTasks2.push(newTask);
+            }
+            newTaskNameInput.value='';
             renderTaskList();
-            saveTasksToStorage();
+            saveData();
         }
 
-        function deleteTaskById(taskId) {
-            savedTasks = savedTasks.filter(t => t.id !== taskId);
+        function deleteTaskById(tid) {
+            if(currentMode===1) {
+                savedTasks1 = savedTasks1.filter(t=>t.id!==tid);
+            } else {
+                savedTasks2 = savedTasks2.filter(t=>t.id!==tid);
+            }
             renderTaskList();
-            saveTasksToStorage();
+            saveData();
         }
 
-        function getSelectedTaskIds() {
-            return Array.from(document.querySelectorAll('.task-checkbox:checked')).map(cb => cb.dataset.taskid);
-        }
-
-        function exportSelectedTasksToCSV() {
-            const selectedIds = getSelectedTaskIds();
-            if (selectedIds.length === 0) { alert('请至少勾选一个任务导出'); return; }
-            const tasksToExport = savedTasks.filter(t => selectedIds.includes(t.id));
-            const headers = ['任务名', '拟合方程', 'R平方', '斜率', '数据点个数'];
-            const rows = tasksToExport.map(t => [t.name, t.equation, t.r2.toFixed(4), t.slope.toFixed(4), t.pointCount]);
-            let csvContent = headers.join(',') + '\n' + rows.map(r => r.map(cell => `"${cell}"`).join(',')).join('\n');
-            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        function exportCSV() {
+            const tasks = getActiveTasks();
+            const ids = [...document.querySelectorAll('.task-checkbox:checked')].map(cb=>cb.dataset.taskid);
+            if(ids.length===0) {
+                alert('请至少勾选一个任务再导出。');
+                return;
+            }
+            const selectedTasks = tasks.filter(t=>ids.includes(t.id));
+            if(selectedTasks.length===0) {
+                alert('未找到选中的任务，请刷新页面后重试。');
+                return;
+            }
+            const csvHeader = '任务名,拟合方程,R平方,斜率,数据点个数';
+            const csvRows = selectedTasks.map(t=>`"${t.name}","${t.equation}",${t.r2.toFixed(4)},${t.slope.toFixed(4)},${t.pointCount}`);
+            const csvContent = '\uFEFF' + csvHeader + '\n' + csvRows.join('\n');
+            const blob = new Blob([csvContent], {type: 'text/csv;charset=utf-8;'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = `拟合任务_${new Date().toISOString().slice(0,10)}.csv`;
-            a.click(); URL.revokeObjectURL(url);
+            a.href = url;
+            a.download = `拟合任务_${currentMode===1?'模式一':'模式二'}_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
         }
 
         function clearAllTasks() {
-            if (savedTasks.length && confirm('删除所有已保存任务？')) {
-                savedTasks = []; renderTaskList(); saveTasksToStorage();
+            const tasks = getActiveTasks();
+            if(tasks.length===0) return;
+            if(confirm(`删除当前模式的所有任务（共 ${tasks.length} 个）？`)) {
+                if(currentMode===1) savedTasks1 = [];
+                else savedTasks2 = [];
+                renderTaskList();
+                saveData();
             }
         }
 
-        // ---------- 🎯 事件绑定 ----------
+        // ---------- 事件绑定 ----------
         function bindEvents() {
-            addBtn.addEventListener('click', addGroup);
-            [val1,val2,val3].forEach(i=>i.addEventListener('keypress',e=>{ if(e.key==='Enter'){ e.preventDefault(); addGroup(); } }));
-            clearAllBtn.addEventListener('click', clearAll);
+            mode1Btn.addEventListener('click', ()=>switchMode(1));
+            mode2Btn.addEventListener('click', ()=>switchMode(2));
+            addGroupBtn1.addEventListener('click', addGroupMode1);
+            clearAllBtn1.addEventListener('click', clearAll);
+            parsePasteBtn2.addEventListener('click', parseAndAddPoints2);
+            addSinglePointBtn2.addEventListener('click', addSinglePoint2);
+            clearAllBtn2.addEventListener('click', clearAll);
             selectAllBtn.addEventListener('click', ()=>setAllIncluded(true));
             deselectAllBtn.addEventListener('click', ()=>setAllIncluded(false));
             addExampleBtn.addEventListener('click', loadExample);
-            
             tableBody.addEventListener('change', e=>{ if(e.target.classList.contains('include-checkbox')) toggleInclude(e.target.dataset.id, e.target.checked); });
             tableBody.addEventListener('click', e=>{ if(e.target.classList.contains('delete-btn')) deleteById(e.target.dataset.id); });
-            
             saveTaskBtn.addEventListener('click', saveCurrentTask);
             taskTableBody.addEventListener('click', e=>{ if(e.target.classList.contains('task-delete')) deleteTaskById(e.target.dataset.taskid); });
             selectAllTasksChk.addEventListener('change', e=>{
-                document.querySelectorAll('.task-checkbox').forEach(cb=>cb.checked=e.target.checked);
+                const checked = e.target.checked;
+                document.querySelectorAll('.task-checkbox').forEach(cb=>cb.checked=checked);
             });
-            exportSelectedBtn.addEventListener('click', exportSelectedTasksToCSV);
+            exportSelectedBtn.addEventListener('click', exportCSV);
             clearAllTasksBtn.addEventListener('click', clearAllTasks);
+            [xVal1,val1,val2,val3].forEach(i=>i.addEventListener('keypress', e=>{ if(e.key==='Enter'){ e.preventDefault(); addGroupMode1(); } }));
         }
 
-        // ---------- 初始化渲染 (应用存储的数据) ----------
-        function initialRender() {
-            refreshUI();
-            renderTaskList();
-        }
-
+        // 初始化
+        loadData();
         bindEvents();
-        initialRender();
+        if(currentMode===2) switchMode(2);
+        else switchMode(1);
     })();
 </script>
-
-<!-- 以下为代码解释，方便学习与修改 -->
-<!--
-================================================================================
-                     📘 代码逐段解释 (面向非编程人员)
-================================================================================
-一、HTML 结构 (<body> 部分)
-   - 整个页面被包裹在 <div class="app-container"> 中，采用卡片式设计。
-   - 输入区域：三个输入框 (val1, val2, val3) 用于录入平行值；还有“添加”“清空”按钮。
-   - 数据表格：展示已添加的数据组，包含序号、三个平行值、平均值、复选框（决定是否参与拟合）、删除按钮。
-   - 拟合结果显示：方程、R²，以及一个图表容器 <canvas>。
-   - 任务管理区域：一个表格显示已保存的任务，包含任务名、方程等，以及保存、导出、清空按钮。
-
-二、CSS 样式 (柔和协调)
-   - 主背景色 #f4f7fb，卡片背景为半透明白色 + 毛玻璃效果 (backdrop-filter)。
-   - 圆角使用 24~32px，阴影轻柔。按钮有悬停微动效果。
-   - 配色以蓝灰色系为主，搭配柔和的高亮色。表格、输入框均有半透明效果。
-
-三、JavaScript 核心逻辑
-
-   1. 状态管理 (dataPoints 与 savedTasks)
-      - dataPoints: 存储所有输入的数据组，每个对象包含唯一id、三个数值、平均值mean、是否纳入拟合included。
-      - savedTasks: 存储用户保存的任务，包含拟合信息。
-
-   2. 本地存储 (localStorage)
-      - loadFromStorage(): 页面加载时读取之前保存的数据和任务，如果没有则给默认示例。
-      - saveDataToStorage() / saveTasksToStorage(): 数据或任务变动时调用，将最新内容写入浏览器本地存储。
-      - 这样关闭页面再打开，数据依然存在。
-
-   3. 智能粘贴 (parsePastedTriple + handlePaste)
-      - 监听三个输入框的 paste 事件，获取剪贴板文本，通过正则分割 (支持制表符、空格、逗号、分号)。
-      - 提取前三个数字填入输入框，并短暂高亮提示。
-
-   4. 线性回归 (linearRegression)
-      - 输入：包含x、y的点数组。x为序号(1,2,3…)，y为平均值。
-      - 使用最小二乘法公式计算斜率slope、截距intercept、决定系数R²。
-      - 公式：slope = (n*Σxy - Σx*Σy) / (n*Σx² - (Σx)²) …… (标准推导)
-
-   5. 界面刷新 (refreshUI)
-      - renderDataTable: 根据dataPoints动态生成表格行。
-      - updateStatsAndFit: 更新统计文字、方程和R²显示。
-      - updateChart: 使用Chart.js绘制散点图和拟合直线。未选中的点灰色，选中点蓝色，拟合线红色。
-      - 每次数据变动（增删、勾选）都会调用refreshUI，并自动保存数据到本地。
-
-   6. 任务保存与导出
-      - saveCurrentTask: 获取当前拟合信息，生成任务对象推入savedTasks，保存到本地。
-      - renderTaskList: 渲染任务表格。
-      - exportSelectedTasksToCSV: 将勾选的任务转换为CSV格式并触发下载，添加BOM头使Excel正常打开中文。
-
-   7. 事件绑定 (bindEvents)
-      - 为按钮、表格内的复选框、删除按钮等绑定对应的处理函数。
-
-四、如何修改？
-   - 修改初始示例数据：在 loadFromStorage 函数中找到 dataPoints 的默认值，修改数字即可。
-   - 调整拟合线颜色：在 updateChart 中找到 borderColor: '#b1624d'，改为其他颜色代码。
-   - 改变每页显示样式：在<style>中调整颜色、圆角、阴影等。
-   - 关闭本地保存：注释掉 refreshUI 中的 saveDataToStorage() 以及任务相关保存调用。
-================================================================================
--->
+</body>
+</html>
